@@ -1,0 +1,27 @@
+{
+  "name": "we-plugin",
+  "version": "1.0.0",
+  "description": "给一个会话，一张稳稳的角色卡。一款基于 AI 的角色卡插件。",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1122438/We-Plugin.git"
+  },
+  "keywords": [
+    "ai",
+    "roleplay",
+    "plugin",
+    "deepseek",
+    "character-card"
+  ],
+  "author": "1122438",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/1122438/We-Plugin/issues"
+  },
+  "homepage": "https://github.com/1122438/We-Plugin#readme"
+}
