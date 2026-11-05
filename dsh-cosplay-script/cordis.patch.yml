@@ -1,0 +1,15 @@
+# dsh-cosplay-script bundle patch — 主机组合层。
+#
+# 只 insert 一行 cosplay-core，**不带 config**。
+#
+# ⚠ 为什么不能写 `config: {}`：
+#   内核文档明确写着「A patch config replaces the whole config.」
+#   本文件是 **bundle patch**（随包分发），它在 profile 之后应用。
+#   一旦这里出现 `config:`，就会把 profile 的 cordis.patch.yml 里
+#   `- id: cosplay-core` 下那份用户配置整体替换成空对象，
+#   于是 getState 返回默认值、用户数据看起来"消失"。
+#   角色库 / 槽位 / 本场提示的权威来源是 $DSH_HOME/cosplay/<profile>.json；
+#   profile patch 只在首次迁移时提供旧配置，不再作为日常写入位置。
+- insert:
+    - id: cosplay-core
+      name: 'dsh-cosplay-script'

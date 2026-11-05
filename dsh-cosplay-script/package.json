@@ -1,0 +1,69 @@
+{
+  "name": "dsh-cosplay-script",
+  "version": "1.0.0",
+  "description": "会话级角色扮演插件：固定槽位常驻系统提示词，长设定按需召回；每会话本场提示、每轮深度提示、注入预览。零运行时依赖。Session-scoped roleplay for DeepSeek Harness.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cosplay",
+    "roleplay",
+    "persona",
+    "cordis"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "test": "node test/store.test.mjs && node test/host.test.mjs && node test/client-render.test.mjs",
+    "test:store": "node test/store.test.mjs",
+    "test:host": "node test/host.test.mjs",
+    "test:client": "node test/client-render.test.mjs",
+    "check": "node --check src/store.js && node --check src/index.js && node --check src/client.js && node --check src/schemastery-lite.js && node --check src/tools-lite.js && node --check src/typert-lite.js",
+    "verify": "npm run check && npm test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dsh": {
+    "id": "cosplay-core",
+    "displayName": "会话剧本",
+    "description": "会话级角色扮演：核心槽位常驻、长条目按需召回；槽位可配置，本场提示随剧情更新，注入内容可预览。只影响绑定的会话。",
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [],
+      "external": []
+    }
+  },
+  "upstream": {
+    "package": "dsh-cosplay",
+    "version": "0.5.1",
+    "url": "https://github.com/ZelinW1/dsh-cosplay",
+    "note": "本包基于上游 dsh-cosplay 0.5.1 重写：v5 固定槽位 + 按需条目 + 每会话本场提示；零运行时依赖。"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  }
+}
