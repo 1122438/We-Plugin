@@ -6,6 +6,8 @@
 
 `v1.0.0` · `DSH 0.2.1-rc.5` · `MIT` · `zero runtime deps`
 
+> **仓库结构**：根目录是插件集合，`dsh-cosplay-script/` 才是可安装的插件包。根目录没有 `index.js`，也不需要——插件入口由 `dsh-cosplay-script/package.json` 的 `main` / `exports` 指定。
+
 ---
 
 ## 简介

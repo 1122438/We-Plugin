@@ -1,27 +1,27 @@
 {
   "name": "we-plugin",
   "version": "1.0.0",
-  "description": "给一个会话，一张稳稳的角色卡。一款基于 AI 的角色卡插件。",
-  "main": "index.js",
-  "type": "commonjs",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "private": true,
+  "description": "DeepSeek Harness 插件集合。首个插件：dsh-cosplay-script（会话剧本）。",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/1122438/We-Plugin.git"
   },
-  "keywords": [
-    "ai",
-    "roleplay",
-    "plugin",
-    "deepseek",
-    "character-card"
-  ],
-  "author": "1122438",
-  "license": "MIT",
+  "homepage": "https://github.com/1122438/We-Plugin#readme",
   "bugs": {
     "url": "https://github.com/1122438/We-Plugin/issues"
   },
-  "homepage": "https://github.com/1122438/We-Plugin#readme"
+  "license": "MIT",
+  "author": "1122438",
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "roleplay",
+    "character-card",
+    "ai"
+  ],
+  "scripts": {
+    "test": "npm --prefix dsh-cosplay-script test",
+    "check": "npm --prefix dsh-cosplay-script run check"
+  }
 }
