@@ -135,9 +135,24 @@
 - DeepSeek Harness **0.2.x**（在 `0.2.1-rc.5` 上验证）
 - Node `^22.19.0 || >=24.0.0`（随 DSH 分发）
 
-### 安装（本地源码 / link）
+### 安装
 
-本仓库是源码分发。把 `dsh-cosplay-script/` 以 link 方式加入 profile：
+#### 方式一：Release tgz（推荐）
+
+1. 打开 [Releases](https://github.com/1122438/We-Plugin/releases/latest)，下载 `dsh-cosplay-script-1.0.0.tgz`；
+2. 在终端执行：
+
+```bash
+dsh plugin --profile desktop add ./dsh-cosplay-script-1.0.0.tgz
+```
+
+3. **完全退出并重启 DSH。**
+
+`<profile>` 换成目标 profile（桌面端是 `desktop`）。桌面端的 `desktop` profile 只能由桌面应用自带 CLI 管理，普通 CLI 会拒绝。
+
+#### 方式二：本地源码（开发调试）
+
+把 `dsh-cosplay-script/` 以 link 方式加入 profile：
 
 ```json
 // profiles/<profile>/package.json
@@ -155,22 +170,30 @@
 }
 ```
 
-然后在 profile 目录执行：
+然后在 profile 目录执行 `pnpm install`，再完全重启 DSH。
+
+#### 方式三：npm（发布后）
 
 ```bash
-pnpm install
+dsh plugin --profile <profile> add dsh-cosplay-script
 ```
 
-**完全退出并重启 DSH。** 主机侧插件只在启动时加载；只刷新页面会出现"设置页在、接口 404"。
+### 验证安装
 
-> 发布到 npm 后，也可以 `dsh plugin --profile <profile> add dsh-cosplay-script`。
+重启后打开 设置 → **会话剧本**：
 
-### 第一次使用
+- 能看到「会话剧本」页签；
+- 页面底部显示 `会话剧本 v1.0.0`；
+- 能选择会话、绑定角色。
+
+如果页签在、保存报 404，说明主机侧没重启；如果页签不在，检查 profile 的 `bundles` 里有没有 `dsh-cosplay-script`。
+
+### 第一次使用（5 步）
 
 1. 设置 → **会话剧本**；
 2. 打开总开关；
-3. 「选择会话」里选一个；
-4. 选角色（自动开启该会话）；
+3. 「选择会话」里选一个（新建对话显示为「新对话」，排在最前）；
+4. 选角色（会自动开启该会话）；
 5. 回到会话，直接发第一句角色对话。
 
 ---

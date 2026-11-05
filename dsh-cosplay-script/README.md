@@ -33,18 +33,21 @@
 
 ## 安装
 
-### 方式一：npm（发布后）
+### 方式一：Release tgz（推荐）
 
-> 当前仓库以源码分发，尚未发布 npm；现在请先用下面的本地源码方式。
+1. 打开 [Releases](https://github.com/1122438/We-Plugin/releases/latest)，下载 `dsh-cosplay-script-1.0.0.tgz`；
+2. 在终端执行：
 
 ```bash
-dsh plugin --profile <profile> add dsh-cosplay-script
+dsh plugin --profile <profile> add ./dsh-cosplay-script-1.0.0.tgz
 ```
+
+3. **完全退出并重启 DSH。**
 
 `<profile>` 换成目标 profile（桌面端 `desktop`，Web 版 `web`）。
 桌面端的 `desktop` profile 只能由桌面应用自带 CLI 管理，普通 CLI 会拒绝。
 
-### 方式二：本地源码（当前推荐）
+### 方式二：本地源码（开发调试）
 
 ```json
 // profiles/<profile>/package.json
@@ -60,11 +63,10 @@ dsh plugin --profile <profile> add dsh-cosplay-script
 
 然后在该 profile 目录执行 `pnpm install`，**完全重启 DSH**。
 
-### 方式三：tarball
+### 方式三：npm（发布后）
 
 ```bash
-npm pack
-dsh plugin --profile <profile> add ./dsh-cosplay-script-1.0.0.tgz
+dsh plugin --profile <profile> add dsh-cosplay-script
 ```
 
 > 安装后必须**完全退出并重启 DSH**：主机侧插件只在启动时加载。
