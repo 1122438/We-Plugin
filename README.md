@@ -4,7 +4,7 @@
 
 **DeepSeek Harness 的会话级角色扮演插件。** 把角色卡的常驻设定放进系统提示词，把长条目放到本轮上下文末尾按需召回，只影响你绑定的那个会话。
 
-`v1.0.0` · `DSH 0.2.1-rc.5` · `MIT` · `zero runtime deps`
+`v1.0.1` · `DSH 0.2.1-rc.5` · `MIT` · `zero runtime deps`
 
 > **仓库结构**：根目录是插件集合，`dsh-cosplay-script/` 才是可安装的插件包。根目录没有 `index.js`，也不需要——插件入口由 `dsh-cosplay-script/package.json` 的 `main` / `exports` 指定。
 
@@ -139,11 +139,11 @@
 
 #### 方式一：Release tgz（推荐）
 
-1. 打开 [Releases](https://github.com/1122438/We-Plugin/releases/latest)，下载 `dsh-cosplay-script-1.0.0.tgz`；
+1. 打开 [Releases](https://github.com/1122438/We-Plugin/releases/latest)，下载 `dsh-cosplay-script-1.0.1.tgz`；
 2. 在终端执行：
 
 ```bash
-dsh plugin --profile desktop add ./dsh-cosplay-script-1.0.0.tgz
+dsh plugin --profile desktop add ./dsh-cosplay-script-1.0.1.tgz
 ```
 
 3. **完全退出并重启 DSH。**
@@ -183,7 +183,7 @@ dsh plugin --profile <profile> add dsh-cosplay-script
 重启后打开 设置 → **会话剧本**：
 
 - 能看到「会话剧本」页签；
-- 页面底部显示 `会话剧本 v1.0.0`；
+- 页面底部显示 `会话剧本 v1.0.1`；
 - 能选择会话、绑定角色。
 
 如果页签在、保存报 404，说明主机侧没重启；如果页签不在，检查 profile 的 `bundles` 里有没有 `dsh-cosplay-script`。
@@ -282,7 +282,7 @@ SillyTavern 参考文档：[Author's Note](https://github.com/prolix-oc/lumivers
 ```yaml
 plugin: dsh-cosplay-script
 display_name: 会话剧本
-version: 1.0.0
+version: 1.0.1
 type: dsh-plugin
 license: MIT
 upstream: dsh-cosplay@0.5.1 (MIT)

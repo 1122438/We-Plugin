@@ -204,6 +204,27 @@ const serializedWithFields = JSON.parse(mod.serializeStateFile({
   roles: [{ ...sampleState.roles[0], fields: [{ key: 'f', label: '身份', value: 'I' }] }],
 }))
 assert.equal(serializedWithFields.roles[0].fields, undefined, '落盘不应再保存 fields（与 slots/entries 重复）')
+// YAML 序列化的边界：会话 id 含 `:`/`#`、数组项首键为空对象/空数组。
+const yamlLines = mod.serializeConfig({
+  sessionStates: { 'a:b': { roleId: 'r' }, 'x#y': { roleId: 'r' } },
+  roles: [{ meta: {}, list: [], name: 'x' }],
+})
+assert.ok(yamlLines.some((line) => line.includes('"a:b":')), '含冒号的键必须加引号')
+assert.ok(yamlLines.some((line) => line.includes('"x#y":')), '含 # 的键必须加引号')
+assert.ok(yamlLines.some((line) => line.includes('- meta: {}')), '数组项首键空对象应写成一行')
+assert.ok(yamlLines.some((line) => line.includes('list: []')), '空数组应写成一行')
+assert.equal(yamlLines.some((line) => line.trim() === '{}'), false, '不应出现裸 {} 行')
+// patch 回读校验：不只看 id 行，还要看整块与缩进。
+const goodBlock = [
+  '- id: cosplay-core',
+  '  name: dsh-cosplay-script',
+  '  config:',
+  '    enabled: true',
+  '    roles: []',
+]
+assert.equal(mod.validatePatchBlock(goodBlock.join('\n'), goodBlock), true)
+assert.equal(mod.validatePatchBlock(goodBlock.join('\n').replace('    enabled: true', '  enabled: true'), goodBlock), false, '缩进坏了应失败')
+assert.equal(mod.validatePatchBlock(goodBlock.slice(0, 1).join('\n'), goodBlock), false, '只剩 id 行应失败')
 assert.equal(mod.parseStateFile('not json'), undefined, '坏文件应安全返回 undefined')
 
 console.log('✓ 主机侧集成测试全部通过')

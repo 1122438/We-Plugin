@@ -473,6 +473,40 @@ test('sessionNotes: 设置 / 清除 / 解绑保留', () => {
   assert.equal(s.sessionNotes['session-b'].length, 200, '应截断到 200 字')
 })
 
+test('normalizeState: 本场提示装载时同样截断到 200', () => {
+  const s = normalizeState({ sessionNotes: { s1: 'x'.repeat(300) } })
+  assert.equal(s.sessionNotes.s1.length, 200)
+})
+
+test('v5: 只有 play.note 的卡不会被迁移丢掉', () => {
+  const role = normalizeRoleCard({ id: 'r', name: 'R', play: { note: '保持第一人称' } })
+  assert.equal(role.play.note, '保持第一人称')
+})
+
+test('条目 id 重复时自动去重（保留两条内容）', () => {
+  const role = normalizeRoleCard({
+    id: 'r', name: 'R',
+    lore: [
+      { id: 'dup', title: 'A', content: '一' },
+      { id: 'dup', title: 'B', content: '二' },
+    ],
+  })
+  assert.deepEqual(role.lore.map((e) => e.id), ['dup', 'dup-2'])
+  assert.equal(role.lore[0].content, '一')
+  assert.equal(role.lore[1].content, '二')
+})
+
+test('条目 id 在 lore / scenes 之间也不重复', () => {
+  const role = normalizeRoleCard({
+    id: 'r', name: 'R',
+    lore: [{ id: 'dup', title: 'L', content: '设定' }],
+    scenes: [{ id: 'dup', title: 'S', content: '场景' }],
+  })
+  const ids = [...role.lore, ...role.scenes].map((e) => e.id)
+  assert.equal(new Set(ids).size, 2, '跨数组也应唯一')
+  assert.deepEqual(ids, ['dup', 'dup-2'])
+})
+
 test('terms: 中文按 bigram，英文按词', () => {
   const list = terms('我们去海边看海 Alice')
   assert.ok(list.includes('海边'))
@@ -491,7 +525,8 @@ test('activate: 关键词 / 排除词 / sticky / cooldown', () => {
 
   const rt = { until: new Map(), cooldownUntil: new Map() }
   assert.deepEqual(activate(role, '我们去海边', 1, rt).map((e) => e.id), ['sea'])
-  assert.deepEqual(activate(role, '继续', 2, rt).map((e) => e.id), ['sea'], 'sticky 应保持')
+  assert.deepEqual(activate(role, '继续', 2, rt).map((e) => e.id), ['sea'], 'sticky 第 1 轮保持')
+  assert.deepEqual(activate(role, '继续', 3, rt).map((e) => e.id), ['sea'], 'sticky 第 2 轮保持')
   assert.deepEqual(activate(role, '继续', 4, rt).map((e) => e.id), [], 'sticky 应过期')
 
   const rt2 = { until: new Map(), cooldownUntil: new Map() }
@@ -500,6 +535,20 @@ test('activate: 关键词 / 排除词 / sticky / cooldown', () => {
   assert.deepEqual(activate(role, '战斗继续', 3, rt2).map((e) => e.id), ['fight'])
 
   assert.deepEqual(activate(role, '和平的战斗', 5, rt2).map((e) => e.id), [], '排除词应生效')
+})
+
+test('activate: 英文触发词大小写不敏感；sticky: 0 不额外保持', () => {
+  const role = normalizeRoleCard({
+    id: 'r', name: 'R',
+    lore: [
+      { id: 'api', title: 'API', keys: ['API'], content: '接口说明' },
+      { id: 'zero', title: '零', keys: ['零'], content: '不延续', sticky: 0 },
+    ],
+  })
+  const rt = { until: new Map(), cooldownUntil: new Map() }
+  assert.deepEqual(activate(role, 'api 怎么用', 1, rt).map((e) => e.id), ['api'], '大写入参应命中小写 key')
+  assert.deepEqual(activate(role, '零', 2, rt).map((e) => e.id), ['zero'])
+  assert.deepEqual(activate(role, '继续', 3, rt).map((e) => e.id), [], 'sticky 0 不应延续')
 })
 
 test('activate: 优先级 + 预算', () => {

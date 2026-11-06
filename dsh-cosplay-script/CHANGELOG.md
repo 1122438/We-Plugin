@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.1（2026-11-07）
+
+稳定补丁：依据 2026-11-04 审计与 2026-11-07 复核。
+
+- `sticky` 语义修正：`0` = 只命中本轮，`N` = 额外保持 N 轮；
+- 本场提示上限统一 200（文案、工具、存储、装载）；
+- `cosplay_note` 不再回退 `agent.id`，缺少 `agent.session.id` 时明确报错；
+- 英文触发词大小写不敏感；
+- `lore` / `scenes` 跨数组 id 去重；
+- 只有 `play.note` 的卡不再丢 note；
+- 索引尾部预算、`buildIndex` 累计长度；
+- profile patch 兜底写入：`.bak` + 整块回读校验 + 失败恢复。
+
 ## 1.0.0（2026-11-05）
 
 首个正式版。包名 `dsh-cosplay-v3-optimization` → **`dsh-cosplay-script`**。

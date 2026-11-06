@@ -1,7 +1,7 @@
 /**
  * dsh-cosplay-script — 主机侧核心插件（组合行 id: cosplay-core）。
  *
- * 改造版（v1.0.0 / v5）。与上游 0.5.1 的关键差异：
+ * 改造版（v1.0.1 / v5）。与上游 0.5.1 的关键差异：
  *
  *   1. **注入方式：固定槽位进系统提示词 + 按需条目进末尾上下文**
  *      核心设定用 `ctx.systemPrompt.section({ text: 函数 })` 渲染（权威位、每轮重算），
@@ -53,6 +53,7 @@ import {
   setSessionEnabled,
   clearSession,
   setSessionNote,
+  SESSION_NOTE_MAX,
   renderRoleDocument,
   renderSessionContext,
   resolveSessionRole,
@@ -473,23 +474,54 @@ function writeProfilePatch(ctx, patch) {
   }
 
   const lines = text.length > 0 ? text.split('\n') : []
-  const start = lines.findIndex((l) => /^- id: cosplay-core$/.test(l))
+  // 本函数只处理**顶格**的 `- id:` 行；缩进形式（例如包在 `- insert:` 下）
+  // 不在当前 profile patch 的形态里。匹配不到时宁可不写，也不追加第二份。
+  const idLine = /^-\s+id:\s*["']?cosplay-core["']?\s*(?:#.*)?$/
+  const indentedIdLine = /^\s+-\s+id:\s*["']?cosplay-core["']?/
+  const start = lines.findIndex((l) => idLine.test(l))
 
   if (start >= 0) {
     // ── 替换已存在的块 ──
     let end = lines.length - 1
     for (let i = start + 1; i < lines.length; i++) {
-      if (/^- id: /.test(lines[i])) { end = i - 1; break }
+      if (/^-\s+id:\s*/.test(lines[i])) { end = i - 1; break }
     }
     while (end > start && lines[end].trim() === '') end--
-    commitPatchFile(file, [...lines.slice(0, start), ...block, ...lines.slice(end + 1)])
+    commitPatchFile(file, [...lines.slice(0, start), ...block, ...lines.slice(end + 1)], block)
     return true
   }
 
   // ── 追加新块 ──
   while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop()
-  const cleaned = lines.filter((l) => l.trim() !== '[]')
-  commitPatchFile(file, [...cleaned, ...block])
+  // 只在整份文档就是空列表时丢弃 `[]`，不要误删用户其它位置的合法行。
+  const cleaned = lines.length === 1 && lines[0].trim() === '[]' ? [] : lines
+  // 二次确认：避免"定位没匹配上、又追加一份"导致同 id 两份。
+  if (cleaned.some((l) => idLine.test(l) || indentedIdLine.test(l))) return false
+  commitPatchFile(file, [...cleaned, ...block], block)
+  return true
+}
+
+/**
+ * 校验写入后的 patch 是否包含完整块，且块内缩进没有坏。
+ *
+ * 只验 `- id:` 行不够：序列化其它部分坏掉时 id 行仍在。
+ * 这里要求整块文本存在，并检查 `config:` 之后每行是 2 的倍数缩进。
+ *
+ * @param text - 写入后的完整文件文本。
+ * @param block - 期望写入的块（行数组）。
+ * @returns 是否通过。
+ */
+export function validatePatchBlock(text, block) {
+  if (!Array.isArray(block) || block.length === 0) return false
+  const value = String(text ?? '')
+  if (!value.includes(block.join('\n'))) return false
+  const configIndex = block.findIndex((line) => line === '  config:')
+  if (configIndex < 0) return false
+  for (const line of block.slice(configIndex + 1)) {
+    if (!line.trim()) continue
+    const indent = (line.match(/^ */) ?? [''])[0].length
+    if (indent < 4 || indent % 2 !== 0) return false
+  }
   return true
 }
 
@@ -497,11 +529,25 @@ function writeProfilePatch(ctx, patch) {
  * 原子写入一个补丁文件（先写临时文件再 rename）。
  * @param file - 目标路径。
  * @param lines - 完整行数组。
+ * @param block - 本次写入的块，用于整块回读校验。
  */
-function commitPatchFile(file, lines) {
+function commitPatchFile(file, lines, block) {
+  let backup = ''
+  if (existsSync(file)) {
+    backup = `${file}.bak-${Date.now()}`
+    try { copyFileSync(file, backup) } catch { backup = '' }
+  }
   const tmp = `${file}.tmp-${Date.now()}`
   writeFileSync(tmp, lines.join('\n') + '\n', 'utf8')
   renameSync(tmp, file)
+  // 写入后回读：验证整块内容与缩进，而不是只找 id 行。
+  const check = readFileSync(file, 'utf8')
+  if (!validatePatchBlock(check, block)) {
+    if (backup) {
+      try { copyFileSync(backup, file) } catch { /* ignore */ }
+    }
+    throw new Error('profile patch 写入校验失败（块内容/缩进不一致），已尝试恢复备份')
+  }
 }
 
 const textOutput = {
@@ -579,11 +625,19 @@ export function serializeConfig(obj) {
           const firstKey = yamlKey(first)
           const fv = item[first]
           if (fv !== null && typeof fv === 'object' && !Array.isArray(fv)) {
-            out.push(`${pad}- ${firstKey}:`)
-            walk(fv, indent + 4)
-          } else if (Array.isArray(fv) && fv.length > 0) {
-            out.push(`${pad}- ${firstKey}:`)
-            walk(fv, indent + 4)
+            if (Object.keys(fv).length === 0) {
+              out.push(`${pad}- ${firstKey}: {}`)
+            } else {
+              out.push(`${pad}- ${firstKey}:`)
+              walk(fv, indent + 4)
+            }
+          } else if (Array.isArray(fv)) {
+            if (fv.length === 0) {
+              out.push(`${pad}- ${firstKey}: []`)
+            } else {
+              out.push(`${pad}- ${firstKey}:`)
+              walk(fv, indent + 4)
+            }
           } else {
             out.push(`${pad}- ${firstKey}: ${yamlValue(fv)}`)
           }
@@ -591,10 +645,14 @@ export function serializeConfig(obj) {
             const v = item[k]
             const keyName = yamlKey(k)
             if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
-              out.push(`${pad}  ${k}:`)
-              walk(v, indent + 4)
+              if (Object.keys(v).length === 0) {
+                out.push(`${pad}  ${keyName}: {}`)
+              } else {
+                out.push(`${pad}  ${keyName}:`)
+                walk(v, indent + 4)
+              }
             } else if (Array.isArray(v) && v.length > 0) {
-              out.push(`${pad}  ${k}:`)
+              out.push(`${pad}  ${keyName}:`)
               walk(v, indent + 4)
             } else {
               out.push(`${pad}  ${keyName}: ${yamlValue(v)}`)
@@ -1288,13 +1346,15 @@ export function apply(ctx, config) {
     if (role.play?.style) lines.push(`扮演方式：${summarize(role.play.style, 60)}`)
     lines.push('', `条目 ${entries.length} 条：`)
     const sorted = [...entries].sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50))
+    let used = lines.join('\n').length
     for (const entry of sorted) {
       const row = `- \`${entry.id}\` ${entry.title}｜${entry.always ? '常驻' : '按需'}｜priority ${entry.priority ?? 50}｜${entry.content.length} 字${entry.keys.length ? `｜关键词 ${entry.keys.join('/')}` : ''}`
-      if (lines.join('\n').length + row.length > maxChars) {
+      if (used + 1 + row.length > maxChars) {
         lines.push('（目录不完整；内容仍可通过 cosplay_recall 读取）')
         break
       }
       lines.push(row)
+      used += 1 + row.length
     }
     if (entries.length === 0) lines.push('（无条目；内容都在核心设定里）')
     return lines.join('\n')
@@ -1375,21 +1435,25 @@ export function apply(ctx, config) {
   ctx.tools.register(defineTool({
     name: 'cosplay_note',
     description:
-      '更新当前会话的「本场提示」（≤100 字，第三人称概要）。只在场景、时间、地点、关系或目标发生明显变化时调用；' +
+      `更新当前会话的「本场提示」（≤${SESSION_NOTE_MAX} 字，第三人称概要）。只在场景、时间、地点、关系或目标发生明显变化时调用；` +
       '不要每轮调用，不要写角色卡内容。它只影响当前会话，下一轮就会随上下文注入。空串表示清除。',
     parameters: {
       type: 'object',
       properties: {
-        text: { type: 'string', description: '新的本场提示（≤100 字）；空串表示清除。' },
+        text: { type: 'string', description: `新的本场提示（≤${SESSION_NOTE_MAX} 字）；空串表示清除。` },
       },
       required: ['text'],
     },
     output: textOutput,
     async execute(args, exec) {
       const agent = exec?.agent
-      const sessionId = agent?.session?.id ?? agent?.id
-      if (!sessionId) return '无法确定当前会话，未更新本场提示。'
-      const text = typeof args.text === 'string' ? args.text.trim().slice(0, 200) : ''
+      // 与注入侧保持一致：只认 session.id；不再回退到 agent.id，
+      // 否则可能出现"写进去了但永远不注入"的静默不一致。
+      const sessionId = agent?.session?.id
+      if (typeof sessionId !== 'string' || !sessionId) {
+        return '无法确定当前会话（缺少 agent.session.id），未更新本场提示。'
+      }
+      const text = typeof args.text === 'string' ? args.text.trim().slice(0, SESSION_NOTE_MAX) : ''
       await write((state) => setSessionNote(state, sessionId, text))
       return text ? `已更新本场提示（${text.length} 字）。` : '已清除本场提示。'
     },

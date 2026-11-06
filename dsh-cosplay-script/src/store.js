@@ -1,7 +1,7 @@
 /**
  * dsh-cosplay-script — 纯函数角色库逻辑（零依赖，可独立测试）。
  *
- * 改造版（v1.0.0 / v5）变化：
+ * 改造版（v1.0.1 / v5）变化：
  *   1. **固定槽位 + 按需条目**：核心内容存 slots（key 固定、标题来自 slotSchema），
  *      场景/知识进 lore/scenes；旧 fields[] 在读取时迁移。
  *   2. **会话级作用域**：开关与激活角色按 session（sessionStates），另有 sessionNotes
@@ -18,6 +18,9 @@
  *   { id, name, emoji, system_prompt, fields: [ { key, label, value } ] }
  *   —— name 必填；emoji / system_prompt 可空但框始终存在；fields 可任意增删。
  */
+
+/** 每会话本场提示的硬上限（UI、工具、存储共用）。 */
+export const SESSION_NOTE_MAX = 200
 
 /** 随插件内置的唯一默认角色（字段已迁移到 fields[] 形式）。 */
 export const DEFAULT_ROLES = [
@@ -324,7 +327,7 @@ function normalizeSessionNotes(raw) {
   const out = {}
   for (const [sessionId, text] of Object.entries(value)) {
     if (typeof sessionId !== 'string' || !sessionId) continue
-    if (typeof text === 'string' && text.trim()) out[sessionId] = text.trim().slice(0, 240)
+    if (typeof text === 'string' && text.trim()) out[sessionId] = text.trim().slice(0, SESSION_NOTE_MAX)
   }
   return out
 }
@@ -452,7 +455,7 @@ export function clearSession(state, sessionId) {
 export function setSessionNote(state, sessionId, note) {
   assertSessionId(sessionId)
   const sessionNotes = { ...(state.sessionNotes ?? {}) }
-  const text = typeof note === 'string' ? note.trim().slice(0, 200) : ''
+  const text = typeof note === 'string' ? note.trim().slice(0, SESSION_NOTE_MAX) : ''
   if (text) sessionNotes[sessionId] = text
   else delete sessionNotes[sessionId]
   return { ...state, sessionNotes }
@@ -589,9 +592,28 @@ function normalizeEntry(raw, prefix, index) {
 }
 
 function normalizeEntries(list, prefix) {
+  const seen = new Set()
   return (Array.isArray(list) ? list : [])
     .map((raw, index) => normalizeEntry(raw, prefix, index))
     .filter((entry) => entry !== null)
+    .map((entry) => {
+      let id = entry.id
+      let suffix = 2
+      while (seen.has(id)) id = `${entry.id}-${suffix++}`
+      seen.add(id)
+      return id === entry.id ? entry : { ...entry, id }
+    })
+}
+
+/** 跨 lore / scenes 统一去重；两边共用一个 seen。 */
+function uniqueEntryIds(list, seen) {
+  return (Array.isArray(list) ? list : []).map((entry) => {
+    let id = entry.id
+    let suffix = 2
+    while (seen.has(id)) id = `${entry.id}-${suffix++}`
+    seen.add(id)
+    return id === entry.id ? entry : { ...entry, id }
+  })
 }
 
 function normalizeCore(raw) {
@@ -719,6 +741,7 @@ function hasPlayContent(play) {
   if (!play || typeof play !== 'object') return false
   return (typeof play.style === 'string' && play.style.trim() !== '')
     || (typeof play.examples === 'string' && play.examples.trim() !== '')
+    || (typeof play.note === 'string' && play.note.trim() !== '')
 }
 
 /**
@@ -773,6 +796,11 @@ export function normalizeRoleCard(raw, previous) {
     lore = migrated.lore
     scenes = migrated.scenes
   }
+
+  // lore / scenes 共用一个 seen：activate 会合并两个数组，id 不能跨数组重复。
+  const seenEntryIds = new Set()
+  lore = uniqueEntryIds(lore, seenEntryIds)
+  scenes = uniqueEntryIds(scenes, seenEntryIds)
 
   return {
     ...base,
@@ -842,7 +870,7 @@ export function renderCore(role, opts = {}) {
   if (blocks.length > 0) parts.push('', blocks.join('\n\n'))
 
   if (play.style?.trim()) parts.push('', `## 扮演方式\n${play.style.trim()}`)
-  parts.push('', '场景、时间或关系发生明显变化时，可用 `cosplay_note` 更新「本场提示」（≤100 字）；不要每轮调用。')
+  parts.push('', `场景、时间或关系发生明显变化时，可用 \`cosplay_note\` 更新「本场提示」（≤${SESSION_NOTE_MAX} 字）；不要每轮调用。`)
 
   // 常驻条目正文（短内容），受总预算约束；超预算的改为索引行，仍可 recall。
   const entries = [...(role.lore ?? []), ...(role.scenes ?? [])]
@@ -878,10 +906,12 @@ export function renderIndex(role, opts = {}) {
 
   if (indexed.length === 0) return ''
   const lines = ['## 资料索引']
+  // 给两行尾部提示预留空间，避免"索引刚好塞满、尾部又超预算"。
+  const footerReserve = 64
   let used = lines[0].length
   let truncated = false
   for (const row of indexed) {
-    if (used + row.length + 1 > max) { truncated = true; break }
+    if (used + row.length + 1 + footerReserve > max) { truncated = true; break }
     lines.push(row)
     used += row.length + 1
   }
@@ -971,26 +1001,29 @@ export function activate(role, text, turn = 0, rt = {}, opts = {}) {
   if (!role) return []
   const maxChars = Number.isFinite(opts.maxChars) ? opts.maxChars : 800
   const source = String(text || '')
+  const sourceNorm = source.normalize('NFKC').toLowerCase()
   const q = new Set(terms(source))
   const current = Number.isFinite(turn) ? turn : 0
   const until = rt.until instanceof Map ? rt.until : new Map()
   const cooldownUntil = rt.cooldownUntil instanceof Map ? rt.cooldownUntil : new Map()
+  const normalizeKey = (key) => String(key || '').normalize('NFKC').toLowerCase()
   const picked = []
 
   for (const entry of [...(role.lore ?? []), ...(role.scenes ?? [])]) {
     if (!entry.content.trim()) continue
     if (entry.always) continue
     if ((cooldownUntil.get(entry.id) ?? 0) > current) continue
-    if (entry.exclude.some((key) => source.includes(key))) continue
+    if (entry.exclude.some((key) => sourceNorm.includes(normalizeKey(key)))) continue
 
-    const hit = entry.keys.some((key) => q.has(key) || source.includes(key))
+    const hit = entry.keys.some((key) => q.has(normalizeKey(key)) || sourceNorm.includes(normalizeKey(key)))
     const sticky = (until.get(entry.id) ?? 0) > current
     if (!hit && !sticky) continue
 
     picked.push(entry)
     if (hit) {
       if (entry.cooldown > 0) cooldownUntil.set(entry.id, current + entry.cooldown)
-      until.set(entry.id, current + Math.max(1, entry.sticky || 1))
+      if (entry.sticky > 0) until.set(entry.id, current + entry.sticky + 1)
+      else until.delete(entry.id)
     }
   }
 

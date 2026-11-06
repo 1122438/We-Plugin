@@ -1,7 +1,7 @@
 # TODO / 路线（v1.0.0 之后）
 
 > 已完成项不再保留。问题细节与证据见
-> `D:\1122\Documents\DeepSeek\记忆系统研究\08-M15-M16-审计报告.md`。
+> `D:\1122\Documents\DeepSeek\Cosplay-Script\versions\1.0.0\docs\08-M15-M16-审计报告.md`。
 
 ## 1. 本场提示的可见性
 

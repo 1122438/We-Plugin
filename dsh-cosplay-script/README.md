@@ -16,7 +16,7 @@
 
 ## 与上游 0.5.1 的差异
 
-| 方面 | 上游 0.5.1 | 本版 1.0.0 |
+| 方面 | 上游 0.5.1 | 本版 1.0.1 |
 |---|---|---|
 | 作用域 | 全局开关，所有会话 + 子代理一起扮演 | **会话级**：逐会话绑定角色与开关 |
 | 注入方式 | `systemPrompt.section()`，拼成「你正在扮演 X」的指令段 | **`section()` 常驻核心 + `context()` 按需召回**（函数式 text、`interpolate:false`） |
@@ -35,11 +35,11 @@
 
 ### 方式一：Release tgz（推荐）
 
-1. 打开 [Releases](https://github.com/1122438/We-Plugin/releases/latest)，下载 `dsh-cosplay-script-1.0.0.tgz`；
+1. 打开 [Releases](https://github.com/1122438/We-Plugin/releases/latest)，下载 `dsh-cosplay-script-1.0.1.tgz`；
 2. 在终端执行：
 
 ```bash
-dsh plugin --profile <profile> add ./dsh-cosplay-script-1.0.0.tgz
+dsh plugin --profile <profile> add ./dsh-cosplay-script-1.0.1.tgz
 ```
 
 3. **完全退出并重启 DSH。**
@@ -122,7 +122,8 @@ profile 的 `cordis.patch.yml` 只保留 bundle 的 `insert` 行与首次迁移�
 2. 另注册 `systemPrompt.context({ name: 'cosplay:recall', order: 300 })`：
    依次放**角色深度提示 → 本场提示 → 本轮命中条目**（≤800 字），全部在上下文末尾（≈depth 0）。
 3. `agent/inbox/claimed` 钩子记录当轮用户消息；用中文 bigram + 触发词做确定性匹配，
-   支持排除词、优先级、预算、sticky / cooldown。
+   支持排除词、优先级、预算、sticky / cooldown。`sticky` 是命中后额外保持的轮数，
+   `0` 表示只在本轮命中时注入、不额外保持。
 4. 内核把非空 context 包成运行时上下文快照；**内容不变时不会追加**。
 5. `cosplay_note` 工具让模型在场景变化时更新本场提示（≤200 字，空串清除）。
 

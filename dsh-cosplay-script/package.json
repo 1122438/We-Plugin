@@ -1,6 +1,6 @@
 {
   "name": "dsh-cosplay-script",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "会话级角色扮演插件：固定槽位常驻系统提示词，长设定按需召回；每会话本场提示、每轮深度提示、注入预览。零运行时依赖。Session-scoped roleplay for DeepSeek Harness.",
   "keywords": [
     "dsh",
